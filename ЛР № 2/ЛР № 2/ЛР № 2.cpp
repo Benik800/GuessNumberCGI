@@ -7,19 +7,30 @@
 #include <regex>
 #include <map>
 #include <cstdlib>
+#include "encrypt.h"
+#include "Base64.h"
 
 using namespace std;
 
-string create_hashed_control_sum(const string& str) 
+string key = "i1want2to3pass4cgi";
+
+string create_encryption_data(const string& data) 
 {
-    hash<string> hash;
-    return to_string(hash(str));
+    string s = data;
+    return encrypt_vigenere(s, key);
 }
 
-string create_hashed_number(int number)
+string create_encryption_Number(int num) 
 {
-    hash <int> hash;
-    return to_string(hash(number));
+    string s = to_string(num);
+    return encrypt_vigenere(s, key);
+}
+
+string decryption_data(string s) 
+{
+    string newKey = extend_key(s, key);
+    string number = decrypt_vigenere(s, newKey);
+    return number;
 }
 
 
@@ -78,12 +89,14 @@ int main() {
     const int min = 1;
     const int max = 100;
     int guessedNumber = rand() % max + min;
-    string hashedNumber = create_hashed_number(guessedNumber);
-    int maxAttempts = ceil(log2(max - min + 1));
+    string hashedNumber = create_encryption_Number(guessedNumber);
+    const int maxAttempts = ceil(log2(max - min + 1));
     int currentAttempts = maxAttempts;
+    string hashedAttempts = (create_encryption_Number(currentAttempts));
     string prevAttempts = "";
     string message = "";
     bool cheat = false;
+    bool victory = false;
     string control_sum;
 
     if (request_method && string(request_method) == "POST") 
@@ -94,14 +107,14 @@ int main() {
             string text(length, ' ');
             cin.read(&text[0], length);
             map<string, string> elements = parsing(text);
-            if (elements.count("currentAttempts") && elements.count("hashedNumber") && elements.count("ControlSum") && elements.count("prevAttempts"))
+            if (elements.count("hashedAttempts") && elements.count("hashedNumber") && elements.count("ControlSum") && elements.count("prevAttempts"))
             {
                 control_sum = elements["ControlSum"];
                 string NewHashedNumber = elements["hashedNumber"];
                 string NewPrevAttempts = elements["prevAttempts"];
-                int NewCurrentAttempts = stoi(elements["currentAttempts"]);
-                string NewControlSum = to_string(NewCurrentAttempts) + NewHashedNumber + NewPrevAttempts;
-                if (create_hashed_control_sum(NewControlSum) != control_sum) 
+                string NewHashedAttempts = elements["hashedAttempts"];
+                string NewControlSum = NewHashedAttempts + NewHashedNumber + NewPrevAttempts;
+                if (create_encryption_data(NewControlSum) != control_sum) 
                 {
                     message = "Жульничать плохо! Игра окончена!";
                     currentAttempts = 0;
@@ -117,44 +130,52 @@ int main() {
                 {
                     hashedNumber = NewHashedNumber;
                     prevAttempts = NewPrevAttempts;
-                    currentAttempts = NewCurrentAttempts;
+                    currentAttempts = stoi(decryption_data(NewHashedAttempts));
                 }
             }
 
-            if (elements.count("usernum") && cheat == false && currentAttempts > 0) {
+            if (elements.count("usernum") && cheat == false && currentAttempts > 0) 
+            {
                 string userNumberStr = elements["usernum"];
                 int userNumber = stoi(userNumberStr);
-                string hashedUserNumber = create_hashed_number(userNumber);
+                guessedNumber = stoi(decryption_data(hashedNumber));
+                string hashedUserNumber = create_encryption_Number(userNumber);
+
                 if (userNumber < min || userNumber > max) 
                 {
                     message = "Выход за пределы!";
                 }
+
                 else 
                 {
-                    if (currentAttempts != 0)
+                    if (currentAttempts > 0)
                     {
-                        currentAttempts--;
+                        --currentAttempts;
+                        hashedAttempts = create_encryption_Number(currentAttempts);
                     }
+
                     if (hashedUserNumber == hashedNumber && currentAttempts >= 0)
                     {
-                        prevAttempts += userNumberStr + " ";
-                        message = "Вы угадали! Было загадано число " + to_string(guessedNumber) + " " + to_string (maxAttempts);
+                        victory = true;
+                        prevAttempts +=  to_string(userNumber) + " ";
+                        message = "Вы угадали! Было загадано число " + to_string(guessedNumber);
 
                     }
+
                     else if(userNumber < guessedNumber && currentAttempts > 0)
                     {
-                        prevAttempts += userNumberStr + ", ";
-                        message = "Загаданное число больше! " + to_string(guessedNumber) + " " + to_string(maxAttempts);
+                        prevAttempts += to_string(userNumber) + ", ";
+                        message = "Загаданное число больше! ";
                     }
                     else if (userNumber > guessedNumber && currentAttempts > 0) 
                     {
-                        prevAttempts += userNumberStr + ", ";
-                        message = "Загаданное число меньше! " + to_string(guessedNumber) + " " + to_string(maxAttempts);
+                        prevAttempts += to_string(userNumber) + ", ";
+                        message = "Загаданное число меньше! ";
                     }
                     else if (currentAttempts == 0) 
                     {
-                        message = "Игра окончена! Начните заново!";
-                        prevAttempts += userNumberStr + " ";
+                        message = "Игра окончена! Начните заново! Было загадано число " + to_string(guessedNumber);
+                        prevAttempts += to_string(userNumber) + " ";
                     }
 
                 }
@@ -164,7 +185,7 @@ int main() {
         }
     }
 
-    control_sum = create_hashed_control_sum(to_string(currentAttempts) + hashedNumber + prevAttempts);
+    control_sum = create_encryption_data(hashedAttempts + hashedNumber + prevAttempts);
 
     cout << "Content-type: text/html " << endl << endl;
     cout << "<!DOCTYPE html>" << endl;
@@ -192,7 +213,7 @@ int main() {
     cout << "<form id=\"guessForm\" class=\"d-flex justify-content-between align-items-start\">" << endl;
     cout << "<div class=\"d-flex form-group\">" << endl;
     cout << "<input type=\"hidden\" name=\"hashedNumber\" value=\"" << hashedNumber << "\">";
-    cout << "<input type=\"hidden\" name=\"currentAttempts\" value=\"" << currentAttempts << "\">";
+    cout << "<input type=\"hidden\" name=\"hashedAttempts\" value=\"" << hashedAttempts << "\">";
     cout << "<input type=\"hidden\" name=\"prevAttempts\" value=\"" << prevAttempts << "\">";
     cout << "<input type=\"hidden\" name=\"ControlSum\" value=\"" << control_sum << "\">";
     cout << "<input type=\"number\" name=\"usernum\" class=\"form-control\" id=\"guess\" placeholder=\"Введите число\">" << endl;
@@ -223,7 +244,7 @@ int main() {
     cout << "const submit = document.getElementById('submit');" << endl;
     cout << "const reset = document.getElementById('reset');" << endl;
     cout << "number.focus();" << endl;
-    if (currentAttempts == 0) {
+    if (currentAttempts == 0 || victory) {
         cout << "number.disabled = true;" << endl;
         cout << "submit.disabled = true;" << endl;
         cout << "reset.focus();" << endl;

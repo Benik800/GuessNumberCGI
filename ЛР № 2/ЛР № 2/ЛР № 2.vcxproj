@@ -127,7 +127,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="C:\Users\sasha\Downloads\Base64.cpp" />
     <ClCompile Include="ЛР № 2.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\sasha\Downloads\Base64.h" />
+    <ClInclude Include="C:\Users\sasha\Downloads\encrypt.h" />
+    <ClInclude Include="C:\Users\sasha\Downloads\vigenere.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
